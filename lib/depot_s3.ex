@@ -115,7 +115,7 @@ defmodule DepotS3 do
   end
 
   @impl Depot.Adapter
-  def write(%Config{} = config, path, contents) do
+  def write(%Config{} = config, path, contents, _opts) do
     path = Depot.RelativePath.join_prefix(config.prefix, path)
 
     operation = ExAws.S3.put_object(config.bucket, path, contents)
@@ -194,14 +194,14 @@ defmodule DepotS3 do
   end
 
   @impl Depot.Adapter
-  def move(%Config{} = config, source, destination) do
-    with :ok <- copy(config, source, destination) do
+  def move(%Config{} = config, source, destination, opts) do
+    with :ok <- copy(config, source, destination, opts) do
       delete(config, source)
     end
   end
 
   @impl Depot.Adapter
-  def copy(%Config{} = config, source, destination) do
+  def copy(%Config{} = config, source, destination, _opts) do
     source = Depot.RelativePath.join_prefix(config.prefix, source)
     destination = Depot.RelativePath.join_prefix(config.prefix, destination)
     do_copy(config.config, {config.bucket, source}, {config.bucket, destination})
@@ -219,7 +219,7 @@ defmodule DepotS3 do
   end
 
   @impl Depot.Adapter
-  def copy(%Config{} = source_config, source, %Config{} = destination_config, destination) do
+  def copy(%Config{} = source_config, source, %Config{} = destination_config, destination, _opts) do
     case {source_config.config, destination_config.config} do
       # Cross bucket copy
       {config, config} ->
@@ -294,8 +294,8 @@ defmodule DepotS3 do
   end
 
   @impl Depot.Adapter
-  def create_directory(config, path) do
-    write(config, path, "")
+  def create_directory(config, path, opts) do
+    write(config, path, "", opts)
   end
 
   @impl Depot.Adapter
@@ -337,5 +337,15 @@ defmodule DepotS3 do
   @impl Depot.Adapter
   def clear(config) do
     delete_directory(config, "/", recursive: true)
+  end
+
+  @impl Depot.Adapter
+  def set_visibility(_config, _path, _visibility) do
+    {:error, :unsupported}
+  end
+
+  @impl Depot.Adapter
+  def visibility(config, path) do
+    {:error, :unsupported}
   end
 end
