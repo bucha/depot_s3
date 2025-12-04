@@ -275,9 +275,6 @@ defmodule DepotS3 do
         [] -> {nil, filename}
       end
 
-      IO.inspect("DEBUG\nFILE: #{__ENV__.file}\nLINE: #{__ENV__.line}")
-      IO.inspect({path, files, folder, filename_isolated})
-
       case {folder, filename_isolated} do
         {nil, _} -> acc
 
