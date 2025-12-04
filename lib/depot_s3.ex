@@ -253,7 +253,7 @@ defmodule DepotS3 do
 
     with {:ok, %{body: %{contents: files}}} <-
            ExAws.request(operation, config.config) do
-      contents = convert_object_list_to_ls(config.prefix, files)
+      contents = convert_object_list_to_ls(config.prefix, path, files)
 
       {:ok, contents}
     else
@@ -261,7 +261,8 @@ defmodule DepotS3 do
     end
   end
 
-  defp convert_object_list_to_ls(prefix, files) do
+  defp convert_object_list_to_ls(prefix, path, files) do
+    path = Depot.RelativePath.strip_prefix(prefix, path)
     files
     |> Enum.with_index()
     |> Enum.reduce(%{}, fn {file, index}, acc ->
@@ -269,13 +270,24 @@ defmodule DepotS3 do
       {:ok, dt, 0} = DateTime.from_iso8601(file.last_modified)
       size = String.to_integer(file.size)
 
-      case {String.last(filename) == "/", Path.split(filename)} do
-        {false, [_]} ->
-          file = %Depot.Stat.File{name: filename, size: size, mtime: dt}
-          Map.put(acc, filename, {index, file})
+      {folder, filename_isolated} = case Regex.scan(~r/^(#{Regex.escape(path)})(.*(?:\/))?(.*)$/, filename) do
+        [[_, _, folder, filename_isolated]] -> {String.trim(String.trim_trailing(folder || "", "/"), "/"), filename_isolated}
+        [] -> {nil, filename}
+      end
 
-        {_, [folder | _]} ->
-          dir = %Depot.Stat.Dir{name: folder, size: size, mtime: dt}
+      IO.inspect("DEBUG\nFILE: #{__ENV__.file}\nLINE: #{__ENV__.line}")
+      IO.inspect({path, files, folder, filename_isolated})
+
+      case {folder, filename_isolated} do
+        {nil, _} -> acc
+
+        {"", _} ->
+          file = %Depot.Stat.File{name: filename_isolated, size: size, mtime: dt}
+          Map.put(acc, filename_isolated, {index, file})
+
+        {subfolders, _} ->
+          [subfolder | _] = String.split(subfolders, "/")
+          dir = %Depot.Stat.Dir{name: subfolder, size: size, mtime: dt}
 
           Map.update(acc, folder, {index, dir}, fn {index, current} ->
             new =

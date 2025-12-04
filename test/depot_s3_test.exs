@@ -46,5 +46,16 @@ defmodule DepotS3Test do
 
       assert {:ok, "Hello World"} = Depot.read(filesystem_b, "other.txt")
     end
+
+    test "file listing", %{config_a: config_a} do
+      filesystem = DepotS3.configure(config: config_a, bucket: "default")
+
+      :ok = Depot.write(filesystem, "testone.txt", "Hello World")
+      :ok = Depot.write(filesystem, "folder/testtwo.txt", "Hello World")
+      :ok = Depot.write(filesystem, "folder/subfolder/testthree.txt", "Hello World")
+      :ok = Depot.write(filesystem, "folder/subfolder/testfour.txt", "Hello World")
+
+      assert {:ok, [%Depot.Stat.Dir{name: "subfolder", size: 22}, %Depot.Stat.File{name: "testtwo.txt"}]} = Depot.list_contents(filesystem, "folder")
+    end
   end
 end
